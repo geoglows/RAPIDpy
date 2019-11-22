@@ -39,11 +39,17 @@ class CreateInflowFileFromERA5Runoff(CreateInflowFileFromGriddedRunoff):
 
         dims = list(data_nc.dimensions)
 
+        for var in dims:
+            var = var.encode('ascii', 'ignore')
+
         if dims not in self.dims_oi:
             data_nc.close()
             raise Exception("{0} {1}".format(self.error_messages[1], dims))
 
         nc_vars = list(data_nc.variables)
+
+        for var in nc_vars:
+            var = var.encode('ascii', 'ignore')
 
         if nc_vars == self.vars_oi[0]:
             self.runoff_vars = [self.vars_oi[0][-1]]
