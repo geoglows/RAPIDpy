@@ -23,12 +23,12 @@ class CreateInflowFileFromHIWATRunoff(CreateInflowFileFromGriddedRunoff):
     land_surface_model_name = "HIWAT"
     header_wt = ['rivid', 'area_sqm', 'lon_index', 'lat_index', 'npoints']
     dims_oi = ['longitude', 'latitude', 'time']
-    vars_oi = ['longitude', 'latitude', 'time', 'PCP']
+    vars_oi = ['longitude', 'latitude', 'time', 'enspmm-prec1h']
     length_time = {"Hourly": 1}
 
     def __init__(self):
         """Define the attributes to look for"""
-        self.runoff_vars = ['PCP']
+        self.runoff_vars = ['enspmm-prec1h']
         super(CreateInflowFileFromHIWATRunoff, self).__init__()
 
     def data_validation(self, in_nc):
@@ -46,6 +46,7 @@ class CreateInflowFileFromHIWATRunoff(CreateInflowFileFromGriddedRunoff):
                 data_nc.close()
                 raise Exception(self.error_messages[2])
         data_nc.close()
+
 
 def make_hiwat_fake_data(in_nc_path):
 
@@ -72,5 +73,4 @@ def make_hiwat_fake_data(in_nc_path):
     copyfile(in_nc_file_path, out_nc_file_path)
     with Dataset(out_nc_file_path, "a") as out_nc:
         out_nc.variables['time'][:] += 24*3600*2
-        out_nc.variables['PCP'][:, :, :] = 0.0
-
+        out_nc.variables['enspmm-prec1h'][:, :, :] = 0.0

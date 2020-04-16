@@ -286,7 +286,7 @@ def identify_lsm_grid(lsm_grid_path):
         elif var == "total runoff":
             # CMIP5 data
             total_runoff_var = var
-        elif var == "PCP":
+        elif var == "enspmm-prec1h":
             # HIWAT uses precipitation as total runoff
             total_runoff_var = var
 
@@ -326,8 +326,8 @@ def identify_lsm_grid(lsm_grid_path):
             # A) ERA Interim Low Res (T255)
             # Downloaded as 0.5 degree grid
             #  dimensions:
-            # 	 longitude = 720 ;
-            # 	 latitude = 361 ;
+            #    longitude = 720 ;
+            #    latitude = 361 ;
             lsm_file_data["description"] = "ERA Interim (T255 Grid)"
             lsm_file_data["model_name"] = "erai"
             lsm_file_data["weight_file_name"] = r'weight_era_t255\.csv'
@@ -436,7 +436,7 @@ def identify_lsm_grid(lsm_grid_path):
             lsm_example_file.close()
             raise Exception("Unsupported runoff grid.")
 
-    elif total_runoff_var == "PCP":
+    elif total_runoff_var == "enspmm-prec1h":
         print("Runoff/precipitation file identified as HIWAT")
         lsm_file_data["description"] = "HIWAT"
         lsm_file_data["weight_file_name"] = r'weight_hiwat\.csv'
@@ -466,7 +466,7 @@ def identify_lsm_grid(lsm_grid_path):
                     longitude_var,
                     surface_runoff_var,
                     subsurface_runoff_var,
-                )
+            )
         else:
             lsm_example_file.close()
             raise Exception("Unsupported LSM grid.")
@@ -482,7 +482,7 @@ def identify_lsm_grid(lsm_grid_path):
                 latitude_var,
                 longitude_var,
                 runoff_vars,
-            )
+        )
 
     return lsm_file_data
 
@@ -860,7 +860,6 @@ def run_lsm_rapid_process(rapid_executable_location,
                 expected_time_step=expected_time_step,
                 lsm_grid_info=lsm_file_data)
 
-
         # VALIDATING INPUT IF DIVIDING BY 3
         if (lsm_file_data['grid_type'] in ('nldas', 'lis', 'joules')) \
                 and convert_one_hour_to_three:
@@ -1011,7 +1010,7 @@ def run_lsm_rapid_process(rapid_executable_location,
                 os.path.basename(master_watershed_input_directory)] = {
                     'm3_riv': master_rapid_runoff_file,
                     'qout': lsm_rapid_output_file
-                }
+            }
 
             if generate_rapid_namelist_file:
                 rapid_manager.generate_namelist_file(
