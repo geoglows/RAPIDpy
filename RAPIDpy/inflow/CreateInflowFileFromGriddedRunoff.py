@@ -219,7 +219,7 @@ class CreateInflowFileFromGriddedRunoff(object):
                 (start_datetime_utc.replace(tzinfo=utc) -
                  datetime(1970, 1, 1, tzinfo=utc)).total_seconds()
             final_time_seconds = \
-                initial_time_seconds + number_of_timesteps\
+                initial_time_seconds + number_of_timesteps \
                 * simulation_time_step_seconds
             time_array = np.arange(initial_time_seconds, final_time_seconds,
                                    simulation_time_step_seconds)
@@ -259,9 +259,9 @@ class CreateInflowFileFromGriddedRunoff(object):
 
             # add global attributes
             data_out_nc.Conventions = 'CF-1.6'
-            data_out_nc.title = 'RAPID Inflow from {0}'\
+            data_out_nc.title = 'RAPID Inflow from {0}' \
                 .format(land_surface_model_description)
-            data_out_nc.history = 'date_created: {0}'\
+            data_out_nc.history = 'date_created: {0}' \
                 .format(datetime.utcnow().replace(tzinfo=utc))
             data_out_nc.featureType = 'timeSeries'
             data_out_nc.institution = modeling_institution
@@ -387,11 +387,11 @@ class CreateInflowFileFromGriddedRunoff(object):
                     # obtain subset of surface and subsurface runoff
                     data_subset_runoff = \
                         data_in_nc.variables[self.runoff_vars[0]][
-                            :, lat_slice, lon_slice]
+                        :, lat_slice, lon_slice]
                     for var_name in self.runoff_vars[1:]:
                         data_subset_runoff += \
                             data_in_nc.variables[var_name][
-                                :, lat_slice, lon_slice]
+                            :, lat_slice, lon_slice]
 
                     # get runoff dims
                     len_time_subset = data_subset_runoff.shape[0]
@@ -501,7 +501,7 @@ class CreateInflowFileFromGriddedRunoff(object):
             data_out_nc = Dataset(out_nc, "a", format="NETCDF3_CLASSIC")
             if runoff_dimension_size == 3 and len_time_subset > 1:
                 data_out_nc.variables['m3_riv'][
-                    index*len_time_subset:(index+1)*len_time_subset, :] = \
+                index * len_time_subset:(index + 1) * len_time_subset, :] = \
                     inflow_data
             else:
                 data_out_nc.variables['m3_riv'][index] = inflow_data

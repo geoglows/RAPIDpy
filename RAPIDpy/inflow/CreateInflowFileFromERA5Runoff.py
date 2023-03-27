@@ -22,13 +22,13 @@ class CreateInflowFileFromERA5Runoff(CreateInflowFileFromGriddedRunoff):
     """
     land_surface_model_name = "ERA 5"
     header_wt = ['rivid', 'area_sqm', 'lon_index', 'lat_index', 'npoints']
-    dims_oi = [['lon', 'lat', 'time'], ['longitude', 'latitude', 'time'], 
-	       [u'time', u'lon', u'lat'], [u'lat', u'lon', u'time']]
+    dims_oi = [['lon', 'lat', 'time'], ['longitude', 'latitude', 'time'],
+               [u'time', u'lon', u'lat'], [u'lat', u'lon', u'time']]
     vars_oi = [["lon", "lat", "time", "RO"],
                ['longitude', 'latitude', 'time', 'ro'],
                [u"lon", u"lat", u"time", u"RO"],
                [u"time", u"lon", u"lat", u"RO"],
-	       [u'lat', u'lon', u'time', u'RO']]
+               [u'lat', u'lon', u'time', u'RO']]
     length_time = {"Daily": 1, "3-Hourly": 8}
 
     def __init__(self):

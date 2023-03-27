@@ -28,10 +28,9 @@ class CreateInflowFileFromWRFHydroRunoff(CreateInflowFileFromLDASRunoff):
                  lon_var="XLONG",
                  surface_runoff_var="SFROFF",
                  subsurface_runoff_var="UDROFF"):
-
         """Define the tool (tool name is the name of the class)."""
         self.dims_oi = ['Time', lat_dim, lon_dim]
 
-        super(CreateInflowFileFromWRFHydroRunoff, self).\
+        super(CreateInflowFileFromWRFHydroRunoff, self). \
             __init__(lat_dim, lon_dim, lat_var, lon_var,
                      [surface_runoff_var, subsurface_runoff_var])
