@@ -28,7 +28,8 @@ class CreateInflowFileFromERA5Runoff(CreateInflowFileFromGriddedRunoff):
                ['longitude', 'latitude', 'time', 'ro'],
                [u"lon", u"lat", u"time", u"RO"],
                [u"time", u"lon", u"lat", u"RO"],
-               [u'lat', u'lon', u'time', u'RO']]
+               [u'lat', u'lon', u'time', u'RO'],
+               ['longitude', 'latitude', 'ro', 'time'],]
     length_time = {"Daily": 1, "3-Hourly": 8}
 
     def __init__(self):
@@ -42,6 +43,9 @@ class CreateInflowFileFromERA5Runoff(CreateInflowFileFromGriddedRunoff):
         data_nc = Dataset(in_nc)
 
         dims = list(data_nc.dimensions)
+        nc_vars = list(data_nc.variables)
+
+        data_nc.close()
 
         for var in dims:
             var = var.encode('ascii', 'ignore')
@@ -49,8 +53,6 @@ class CreateInflowFileFromERA5Runoff(CreateInflowFileFromGriddedRunoff):
         if dims not in self.dims_oi:
             data_nc.close()
             raise Exception("{0} {1}".format(self.error_messages[1], dims))
-
-        nc_vars = list(data_nc.variables)
 
         for var in nc_vars:
             var = var.encode('ascii', 'ignore')
@@ -65,8 +67,8 @@ class CreateInflowFileFromERA5Runoff(CreateInflowFileFromGriddedRunoff):
             self.runoff_vars = [self.vars_oi[3][-1]]
         elif nc_vars == self.vars_oi[4]:
             self.runoff_vars = [self.vars_oi[4][-1]]
+        elif nc_vars == self.vars_oi[4]:
+            self.runoff_vars = [self.vars_oi[5][2]]
 
         else:
-            data_nc.close()
             raise Exception("{0} {1}".format(self.error_messages[2], nc_vars))
-        data_nc.close()
