@@ -86,7 +86,7 @@ def generate_inflows_from_runoff(args):
 
         time_finish_ecmwf = datetime.utcnow()
         print("Time to convert inflows: {0}"
-              .format(time_finish_ecmwf-time_start_all))
+              .format(time_finish_ecmwf - time_start_all))
 
 
 # -----------------------------------------------------------------------------
@@ -102,6 +102,14 @@ DEFAULT_LSM_INPUTS = {
         'file_datetime_pattern': "%Y%m%d",
     },
     't640': {
+        'file_datetime_re_pattern': r'\d{8}',
+        'file_datetime_pattern': "%Y%m%d",
+    },
+    't1800': {
+        'file_datetime_re_pattern': r'\d{8}',
+        'file_datetime_pattern': "%Y%m%d",
+    },
+    't720': {
         'file_datetime_re_pattern': r'\d{8}',
         'file_datetime_pattern': "%Y%m%d",
     },
@@ -364,6 +372,24 @@ def identify_lsm_grid(lsm_grid_path):
             lsm_file_data["model_name"] = "era5"
             lsm_file_data["grid_type"] = 't640'
 
+        elif lat_dim_size == 1801 and lon_dim_size == 3600:
+            print("Runoff file identified as ERA 5 High Res (t1800) GRID")
+            # E) ERA5-Land 1950-Present  ***Added March 2023 Riley Hales
+            # https://doi.org/10.24381/cds.e2161bac
+            lsm_file_data["description"] = "ERA5-Land (t1800 Grid)"
+            lsm_file_data["weight_file_name"] = r'weight_era5land_1801x3600\.csv'
+            lsm_file_data["model_name"] = "era5"
+            lsm_file_data["grid_type"] = 't1800'
+
+        elif lat_dim_size == 721 and lon_dim_size == 1440:
+            print("Runoff file identified as ERA 5 High Res (t720) GRID")
+            # F) ERA5 1940-Present ***Added March 2023 Riley Hales
+            # https://doi.org/10.24381/cds.adbb2d47
+            lsm_file_data["description"] = "ERA5 (t720 Grid)"
+            lsm_file_data["weight_file_name"] = r'weight_era5_721x1440\.csv'
+            lsm_file_data["model_name"] = "era5"
+            lsm_file_data["grid_type"] = 't720'
+
         else:
             lsm_example_file.close()
             raise Exception("Unsupported ECMWF grid.")
@@ -503,7 +529,7 @@ def determine_start_end_timestep(lsm_file_list,
     if lsm_grid_info is None:
         lsm_grid_info = identify_lsm_grid(lsm_file_list[0])
 
-    if None in (lsm_grid_info['time_var'], lsm_grid_info['time_dim'])\
+    if None in (lsm_grid_info['time_var'], lsm_grid_info['time_dim']) \
             or lsm_grid_info['model_name'] in ('era_20cm', 'erai', 'era5'):
         # NOTE: the ERA20CM and ERA 24hr time variables
         # in the tests are erroneous
@@ -535,7 +561,7 @@ def determine_start_end_timestep(lsm_file_list,
                 int((datetime.strptime(
                     file_re_match.search(lsm_file_list[1]).group(0),
                     file_datetime_pattern) -
-                    actual_simulation_start_datetime).total_seconds()
+                     actual_simulation_start_datetime).total_seconds()
                     / float(file_size_time))
 
         elif expected_time_step is not None:
@@ -549,7 +575,7 @@ def determine_start_end_timestep(lsm_file_list,
         actual_simulation_end_datetime = \
             datetime.strptime(file_re_match.search(lsm_file_list[-1]).group(0),
                               file_datetime_pattern) \
-            + timedelta(seconds=(file_size_time-1) * time_step)
+            + timedelta(seconds=(file_size_time - 1) * time_step)
     else:
         with pangaea.open_mfdataset(lsm_file_list,
                                     lat_var=lsm_grid_info['latitude_var'],
@@ -877,10 +903,10 @@ def run_lsm_rapid_process(rapid_executable_location,
             time_step *= 3
 
         # compile the file ending
-        out_file_ending = "{0}_{1}_{2}hr_{3:%Y%m%d}to{4:%Y%m%d}{5}"\
+        out_file_ending = "{0}_{1}_{2}hr_{3:%Y%m%d}to{4:%Y%m%d}{5}" \
             .format(lsm_file_data['model_name'],
                     lsm_file_data['grid_type'],
-                    int(time_step/3600),
+                    int(time_step / 3600),
                     actual_simulation_start_datetime,
                     actual_simulation_end_datetime,
                     ensemble_file_ending)
@@ -933,11 +959,11 @@ def run_lsm_rapid_process(rapid_executable_location,
                     and convert_one_hour_to_three:
                 print("Grouping {0} in threes"
                       .format(lsm_file_data['grid_type']))
-                lsm_file_list = [lsm_file_list[nldas_index:nldas_index+3]
+                lsm_file_list = [lsm_file_list[nldas_index:nldas_index + 3]
                                  for nldas_index in
                                  range(0, len(lsm_file_list), 3)
                                  if len(lsm_file_list[
-                                        nldas_index:nldas_index+3]) == 3]
+                                        nldas_index:nldas_index + 3]) == 3]
 
             if len(lsm_file_list) < num_cpus:
                 num_cpus = len(lsm_file_list)
@@ -956,15 +982,15 @@ def run_lsm_rapid_process(rapid_executable_location,
                         master_rapid_runoff_file,
                         lsm_file_data['rapid_inflow_tool'],
                         mp_lock))
-#                   # COMMENTED CODE IS FOR DEBUGGING
-#                   generate_inflows_from_runoff((
-#                       cpu_grouped_file_list,
-#                       partition_index_list[loop_index],
-#                       lsm_file_data['weight_table_file'],
-#                       lsm_file_data['grid_type'],
-#                       master_rapid_runoff_file,
-#                       lsm_file_data['rapid_inflow_tool'],
-#                       mp_lock))
+            #                   # COMMENTED CODE IS FOR DEBUGGING
+            #                   generate_inflows_from_runoff((
+            #                       cpu_grouped_file_list,
+            #                       partition_index_list[loop_index],
+            #                       lsm_file_data['weight_table_file'],
+            #                       lsm_file_data['grid_type'],
+            #                       master_rapid_runoff_file,
+            #                       lsm_file_data['rapid_inflow_tool'],
+            #                       mp_lock))
             pool = multiprocessing.Pool(num_cpus)
             pool.map(generate_inflows_from_runoff,
                      job_combinations)
@@ -1013,9 +1039,9 @@ def run_lsm_rapid_process(rapid_executable_location,
 
             output_file_information[
                 os.path.basename(master_watershed_input_directory)] = {
-                    'm3_riv': master_rapid_runoff_file,
-                    'qout': lsm_rapid_output_file
-                }
+                'm3_riv': master_rapid_runoff_file,
+                'qout': lsm_rapid_output_file
+            }
 
             if generate_rapid_namelist_file:
                 rapid_manager.generate_namelist_file(
@@ -1029,8 +1055,8 @@ def run_lsm_rapid_process(rapid_executable_location,
                     simulation_start_datetime=actual_simulation_start_datetime,
                     comid_lat_lon_z_file=in_rivid_lat_lon_z_file,
                     project_name="{0} Based Historical flows by {1}"
-                                 .format(lsm_file_data['description'],
-                                         modeling_institution)
+                    .format(lsm_file_data['description'],
+                            modeling_institution)
                 )
 
                 # generate return periods
@@ -1085,6 +1111,6 @@ def run_lsm_rapid_process(rapid_executable_location,
     time_end = datetime.utcnow()
     print("Time Begin All: {0}".format(time_begin_all))
     print("Time Finish All: {0}".format(time_end))
-    print("TOTAL TIME: {0}".format(time_end-time_begin_all))
+    print("TOTAL TIME: {0}".format(time_end - time_begin_all))
 
     return all_output_file_information
