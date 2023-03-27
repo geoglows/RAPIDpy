@@ -105,6 +105,14 @@ DEFAULT_LSM_INPUTS = {
         'file_datetime_re_pattern': r'\d{8}',
         'file_datetime_pattern': "%Y%m%d",
     },
+    't1800': {
+        'file_datetime_re_pattern': r'\d{8}',
+        'file_datetime_pattern': "%Y%m%d",
+    },
+    't720': {
+        'file_datetime_re_pattern': r'\d{8}',
+        'file_datetime_pattern': "%Y%m%d",
+    },
     't159': {
         'file_datetime_re_pattern': r'\d{8}',
         'file_datetime_pattern': "%Y%m%d",
@@ -369,7 +377,7 @@ def identify_lsm_grid(lsm_grid_path):
             # E) ERA5-Land 1950-Present  ***Added March 2023 Riley Hales
             # https://doi.org/10.24381/cds.e2161bac
             lsm_file_data["description"] = "ERA5-Land (t1800 Grid)"
-            lsm_file_data["weight_file_name"] = r'weight_era5land_1801x3600.csv'
+            lsm_file_data["weight_file_name"] = r'weight_era5land_1801x3600\.csv'
             lsm_file_data["model_name"] = "era5"
             lsm_file_data["grid_type"] = 't1800'
 
@@ -378,7 +386,7 @@ def identify_lsm_grid(lsm_grid_path):
             # F) ERA5 1940-Present ***Added March 2023 Riley Hales
             # https://doi.org/10.24381/cds.adbb2d47
             lsm_file_data["description"] = "ERA5 (t720 Grid)"
-            lsm_file_data["weight_file_name"] = r'weight_era5_721x1440.csv'
+            lsm_file_data["weight_file_name"] = r'weight_era5_721x1440\.csv'
             lsm_file_data["model_name"] = "era5"
             lsm_file_data["grid_type"] = 't720'
 
