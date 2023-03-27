@@ -61,7 +61,7 @@ class CreateInflowFileFromERA5Runoff(CreateInflowFileFromGriddedRunoff):
             self.runoff_vars = [self.vars_oi[3][-1]]
         elif nc_vars == self.vars_oi[4]:
             self.runoff_vars = [self.vars_oi[4][-1]]
-        elif nc_vars == self.vars_oi[4]:
+        elif nc_vars == self.vars_oi[5]:
             self.runoff_vars = [self.vars_oi[5][2]]
 
         else:
