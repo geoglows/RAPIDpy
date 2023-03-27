@@ -364,6 +364,24 @@ def identify_lsm_grid(lsm_grid_path):
             lsm_file_data["model_name"] = "era5"
             lsm_file_data["grid_type"] = 't640'
 
+        elif lat_dim_size == 1801 and lon_dim_size == 3600:
+            print("Runoff file identified as ERA 5 High Res (t1800) GRID")
+            # E) ERA5-Land 1950-Present  ***Added March 2023 Riley Hales
+            # https://doi.org/10.24381/cds.e2161bac
+            lsm_file_data["description"] = "ERA5-Land (t1800 Grid)"
+            lsm_file_data["weight_file_name"] = r'weight_era5land_1801x3600.csv'
+            lsm_file_data["model_name"] = "era5"
+            lsm_file_data["grid_type"] = 't1800'
+
+        elif lat_dim_size == 721 and lon_dim_size == 1440:
+            print("Runoff file identified as ERA 5 High Res (t720) GRID")
+            # F) ERA5 1940-Present ***Added March 2023 Riley Hales
+            # https://doi.org/10.24381/cds.adbb2d47
+            lsm_file_data["description"] = "ERA5 (t720 Grid)"
+            lsm_file_data["weight_file_name"] = r'weight_era5_721x1440.csv'
+            lsm_file_data["model_name"] = "era5"
+            lsm_file_data["grid_type"] = 't720'
+
         else:
             lsm_example_file.close()
             raise Exception("Unsupported ECMWF grid.")
