@@ -48,7 +48,6 @@ class CreateInflowFileFromERA5Runoff(CreateInflowFileFromGriddedRunoff):
         data_nc.close()
 
         if dims not in self.dims_oi:
-            data_nc.close()
             raise Exception("{0} {1}".format(self.error_messages[1], dims))
 
         if nc_vars == self.vars_oi[0]:
