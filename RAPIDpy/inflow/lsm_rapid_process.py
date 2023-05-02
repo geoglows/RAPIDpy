@@ -6,29 +6,28 @@
    Created by Alan D. Snow, 2015.
    License: BSD 3-Clause
 """
-from datetime import datetime, timedelta
 import multiprocessing
+import numpy as np
 import os
-import re
-import traceback
-
 # external packages
 import pandas as pd
 import pangaea
+import re
+import traceback
+from datetime import datetime, timedelta
 from netCDF4 import Dataset
-import numpy as np
 
-# local imports
-from ..rapid import RAPID
-from .CreateInflowFileFromERAInterimRunoff import \
-    CreateInflowFileFromERAInterimRunoff
 from .CreateInflowFileFromERA5Runoff import \
     CreateInflowFileFromERA5Runoff
+from .CreateInflowFileFromERAInterimRunoff import \
+    CreateInflowFileFromERAInterimRunoff
 from .CreateInflowFileFromLDASRunoff import CreateInflowFileFromLDASRunoff
 from .CreateInflowFileFromWRFHydroRunoff import \
     CreateInflowFileFromWRFHydroRunoff
 from ..postprocess.generate_return_periods import generate_return_periods
 from ..postprocess.generate_seasonal_averages import generate_seasonal_averages
+# local imports
+from ..rapid import RAPID
 from ..utilities import (case_insensitive_file_search,
                          get_valid_directory_list,
                          partition)
@@ -914,196 +913,203 @@ def run_lsm_rapid_process(rapid_executable_location,
         # run LSM processes
         for master_watershed_input_directory, \
                 master_watershed_output_directory in rapid_directories:
-            print("Running from: {0}".format(master_watershed_input_directory))
             try:
-                os.makedirs(master_watershed_output_directory)
-            except OSError:
-                pass
+                print("Running from: {0}".format(master_watershed_input_directory))
+                try:
+                    os.makedirs(master_watershed_output_directory)
+                except OSError:
+                    pass
 
-            # create inflow to dump data into
-            master_rapid_runoff_file = \
-                os.path.join(master_watershed_output_directory,
-                             'm3_riv_bas_{0}'.format(out_file_ending))
+                # create inflow to dump data into
+                master_rapid_runoff_file = \
+                    os.path.join(master_watershed_output_directory,
+                                 'm3_riv_bas_{0}'.format(out_file_ending))
 
-            weight_table_file = \
-                case_insensitive_file_search(master_watershed_input_directory,
-                                             lsm_file_data['weight_file_name'])
+                weight_table_file = \
+                    case_insensitive_file_search(master_watershed_input_directory,
+                                                 lsm_file_data['weight_file_name'])
 
-            try:
-                in_rivid_lat_lon_z_file = \
-                    case_insensitive_file_search(
+                try:
+                    in_rivid_lat_lon_z_file = \
+                        case_insensitive_file_search(
+                            master_watershed_input_directory,
+                            r'comid_lat_lon_z\.csv')
+                except IndexError:
+                    in_rivid_lat_lon_z_file = ""
+                    print("WARNING: comid_lat_lon_z file not found."
+                          " The lat/lon will not be added ...")
+
+                print("Writing inflow file to: {0}"
+                      .format(master_rapid_runoff_file))
+                lsm_file_data['rapid_inflow_tool'].generateOutputInflowFile(
+                    out_nc=master_rapid_runoff_file,
+                    start_datetime_utc=actual_simulation_start_datetime,
+                    number_of_timesteps=total_num_time_steps,
+                    simulation_time_step_seconds=time_step,
+                    in_rapid_connect_file=case_insensitive_file_search(
                         master_watershed_input_directory,
-                        r'comid_lat_lon_z\.csv')
-            except IndexError:
-                in_rivid_lat_lon_z_file = ""
-                print("WARNING: comid_lat_lon_z file not found."
-                      " The lat/lon will not be added ...")
+                        r'rapid_connect\.csv'),
+                    in_rivid_lat_lon_z_file=in_rivid_lat_lon_z_file,
+                    land_surface_model_description=lsm_file_data['description'],
+                    modeling_institution=modeling_institution
+                )
 
-            print("Writing inflow file to: {0}"
-                  .format(master_rapid_runoff_file))
-            lsm_file_data['rapid_inflow_tool'].generateOutputInflowFile(
-                out_nc=master_rapid_runoff_file,
-                start_datetime_utc=actual_simulation_start_datetime,
-                number_of_timesteps=total_num_time_steps,
-                simulation_time_step_seconds=time_step,
-                in_rapid_connect_file=case_insensitive_file_search(
-                    master_watershed_input_directory,
-                    r'rapid_connect\.csv'),
-                in_rivid_lat_lon_z_file=in_rivid_lat_lon_z_file,
-                land_surface_model_description=lsm_file_data['description'],
-                modeling_institution=modeling_institution
-            )
+                job_combinations = []
+                if (lsm_file_data['grid_type'] in ('nldas', 'lis', 'joules')) \
+                        and convert_one_hour_to_three:
+                    print("Grouping {0} in threes"
+                          .format(lsm_file_data['grid_type']))
+                    lsm_file_list = [lsm_file_list[nldas_index:nldas_index + 3]
+                                     for nldas_index in
+                                     range(0, len(lsm_file_list), 3)
+                                     if len(lsm_file_list[
+                                            nldas_index:nldas_index + 3]) == 3]
 
-            job_combinations = []
-            if (lsm_file_data['grid_type'] in ('nldas', 'lis', 'joules')) \
-                    and convert_one_hour_to_three:
-                print("Grouping {0} in threes"
-                      .format(lsm_file_data['grid_type']))
-                lsm_file_list = [lsm_file_list[nldas_index:nldas_index + 3]
-                                 for nldas_index in
-                                 range(0, len(lsm_file_list), 3)
-                                 if len(lsm_file_list[
-                                        nldas_index:nldas_index + 3]) == 3]
+                if len(lsm_file_list) < num_cpus:
+                    num_cpus = len(lsm_file_list)
+                # pylint: disable=no-member
+                mp_lock = multiprocessing.Manager().Lock()
+                partition_list, partition_index_list = \
+                    partition(lsm_file_list, num_cpus)
 
-            if len(lsm_file_list) < num_cpus:
-                num_cpus = len(lsm_file_list)
-            # pylint: disable=no-member
-            mp_lock = multiprocessing.Manager().Lock()
-            partition_list, partition_index_list = \
-                partition(lsm_file_list, num_cpus)
+                for loop_index, cpu_grouped_file_list in enumerate(partition_list):
+                    if cpu_grouped_file_list and partition_index_list[loop_index]:
+                        job_combinations.append((
+                            cpu_grouped_file_list,
+                            partition_index_list[loop_index],
+                            weight_table_file,
+                            lsm_file_data['grid_type'],
+                            master_rapid_runoff_file,
+                            lsm_file_data['rapid_inflow_tool'],
+                            mp_lock))
+                #                   # COMMENTED CODE IS FOR DEBUGGING
+                #                   generate_inflows_from_runoff((
+                #                       cpu_grouped_file_list,
+                #                       partition_index_list[loop_index],
+                #                       lsm_file_data['weight_table_file'],
+                #                       lsm_file_data['grid_type'],
+                #                       master_rapid_runoff_file,
+                #                       lsm_file_data['rapid_inflow_tool'],
+                #                       mp_lock))
+                pool = multiprocessing.Pool(num_cpus)
+                pool.map(generate_inflows_from_runoff,
+                         job_combinations)
+                pool.close()
+                pool.join()
 
-            for loop_index, cpu_grouped_file_list in enumerate(partition_list):
-                if cpu_grouped_file_list and partition_index_list[loop_index]:
-                    job_combinations.append((
-                        cpu_grouped_file_list,
-                        partition_index_list[loop_index],
-                        weight_table_file,
-                        lsm_file_data['grid_type'],
-                        master_rapid_runoff_file,
-                        lsm_file_data['rapid_inflow_tool'],
-                        mp_lock))
-            #                   # COMMENTED CODE IS FOR DEBUGGING
-            #                   generate_inflows_from_runoff((
-            #                       cpu_grouped_file_list,
-            #                       partition_index_list[loop_index],
-            #                       lsm_file_data['weight_table_file'],
-            #                       lsm_file_data['grid_type'],
-            #                       master_rapid_runoff_file,
-            #                       lsm_file_data['rapid_inflow_tool'],
-            #                       mp_lock))
-            pool = multiprocessing.Pool(num_cpus)
-            pool.map(generate_inflows_from_runoff,
-                     job_combinations)
-            pool.close()
-            pool.join()
+                # set up RAPID manager
+                rapid_manager = RAPID(
+                    rapid_executable_location=rapid_executable_location,
+                    cygwin_bin_location=cygwin_bin_location,
+                    num_processors=num_cpus,
+                    mpiexec_command=mpiexec_command,
+                    ZS_TauR=time_step,
+                    ZS_dtR=15 * 60,
+                    ZS_TauM=total_num_time_steps * time_step,
+                    ZS_dtM=time_step)
 
-            # set up RAPID manager
-            rapid_manager = RAPID(
-                rapid_executable_location=rapid_executable_location,
-                cygwin_bin_location=cygwin_bin_location,
-                num_processors=num_cpus,
-                mpiexec_command=mpiexec_command,
-                ZS_TauR=time_step,
-                ZS_dtR=15 * 60,
-                ZS_TauM=total_num_time_steps * time_step,
-                ZS_dtM=time_step)
+                if initial_flows_file and os.path.exists(initial_flows_file):
+                    rapid_manager.update_parameters(
+                        Qinit_file=initial_flows_file,
+                        BS_opt_Qinit=True
+                    )
 
-            if initial_flows_file and os.path.exists(initial_flows_file):
+                # run RAPID for the watershed
+                lsm_rapid_output_file = \
+                    os.path.join(master_watershed_output_directory,
+                                 'Qout_{0}'.format(out_file_ending))
                 rapid_manager.update_parameters(
-                    Qinit_file=initial_flows_file,
-                    BS_opt_Qinit=True
+                    rapid_connect_file=case_insensitive_file_search(
+                        master_watershed_input_directory,
+                        r'rapid_connect\.csv'),
+                    Vlat_file=master_rapid_runoff_file,
+                    riv_bas_id_file=case_insensitive_file_search(
+                        master_watershed_input_directory,
+                        r'riv_bas_id\.csv'),
+                    k_file=case_insensitive_file_search(
+                        master_watershed_input_directory,
+                        r'k\.csv'),
+                    x_file=case_insensitive_file_search(
+                        master_watershed_input_directory,
+                        r'x\.csv'),
+                    Qout_file=lsm_rapid_output_file
                 )
 
-            # run RAPID for the watershed
-            lsm_rapid_output_file = \
-                os.path.join(master_watershed_output_directory,
-                             'Qout_{0}'.format(out_file_ending))
-            rapid_manager.update_parameters(
-                rapid_connect_file=case_insensitive_file_search(
-                    master_watershed_input_directory,
-                    r'rapid_connect\.csv'),
-                Vlat_file=master_rapid_runoff_file,
-                riv_bas_id_file=case_insensitive_file_search(
-                    master_watershed_input_directory,
-                    r'riv_bas_id\.csv'),
-                k_file=case_insensitive_file_search(
-                    master_watershed_input_directory,
-                    r'k\.csv'),
-                x_file=case_insensitive_file_search(
-                    master_watershed_input_directory,
-                    r'x\.csv'),
-                Qout_file=lsm_rapid_output_file
-            )
+                rapid_manager.update_reach_number_data()
 
-            rapid_manager.update_reach_number_data()
+                output_file_information[
+                    os.path.basename(master_watershed_input_directory)] = {
+                    'm3_riv': master_rapid_runoff_file,
+                    'qout': lsm_rapid_output_file
+                }
 
-            output_file_information[
-                os.path.basename(master_watershed_input_directory)] = {
-                'm3_riv': master_rapid_runoff_file,
-                'qout': lsm_rapid_output_file
-            }
+                if generate_rapid_namelist_file:
+                    rapid_manager.generate_namelist_file(
+                        os.path.join(master_watershed_input_directory,
+                                     "rapid_namelist_{}"
+                                     .format(out_file_ending[:-3])))
+                if run_rapid_simulation:
+                    rapid_manager.run()
 
-            if generate_rapid_namelist_file:
-                rapid_manager.generate_namelist_file(
-                    os.path.join(master_watershed_input_directory,
-                                 "rapid_namelist_{}"
-                                 .format(out_file_ending[:-3])))
-            if run_rapid_simulation:
-                rapid_manager.run()
+                    rapid_manager.make_output_cf_compliant(
+                        simulation_start_datetime=actual_simulation_start_datetime,
+                        comid_lat_lon_z_file=in_rivid_lat_lon_z_file,
+                        project_name="{0} Based Historical flows by {1}"
+                        .format(lsm_file_data['description'],
+                                modeling_institution)
+                    )
 
-                rapid_manager.make_output_cf_compliant(
-                    simulation_start_datetime=actual_simulation_start_datetime,
-                    comid_lat_lon_z_file=in_rivid_lat_lon_z_file,
-                    project_name="{0} Based Historical flows by {1}"
-                    .format(lsm_file_data['description'],
-                            modeling_institution)
-                )
+                    # generate return periods
+                    if generate_return_periods_file and \
+                            os.path.exists(lsm_rapid_output_file) and \
+                            lsm_rapid_output_file:
+                        return_periods_file = os.path.join(
+                            master_watershed_output_directory,
+                            'return_periods_{0}'.format(out_file_ending))
+                        # assume storm has 3 day length
+                        storm_length_days = 3
+                        generate_return_periods(
+                            qout_file=lsm_rapid_output_file,
+                            return_period_file=return_periods_file,
+                            num_cpus=num_cpus,
+                            storm_duration_days=storm_length_days,
+                            method=return_period_method)
 
-                # generate return periods
-                if generate_return_periods_file and \
-                        os.path.exists(lsm_rapid_output_file) and \
-                        lsm_rapid_output_file:
-                    return_periods_file = os.path.join(
-                        master_watershed_output_directory,
-                        'return_periods_{0}'.format(out_file_ending))
-                    # assume storm has 3 day length
-                    storm_length_days = 3
-                    generate_return_periods(
-                        qout_file=lsm_rapid_output_file,
-                        return_period_file=return_periods_file,
-                        num_cpus=num_cpus,
-                        storm_duration_days=storm_length_days,
-                        method=return_period_method)
+                    # generate seasonal averages file
+                    if generate_seasonal_averages_file and \
+                            os.path.exists(lsm_rapid_output_file) and \
+                            lsm_rapid_output_file:
+                        seasonal_averages_file = os.path.join(
+                            master_watershed_output_directory,
+                            'seasonal_averages_{0}'.format(out_file_ending))
+                        generate_seasonal_averages(lsm_rapid_output_file,
+                                                   seasonal_averages_file,
+                                                   num_cpus)
 
-                # generate seasonal averages file
-                if generate_seasonal_averages_file and \
-                        os.path.exists(lsm_rapid_output_file) and \
-                        lsm_rapid_output_file:
-                    seasonal_averages_file = os.path.join(
-                        master_watershed_output_directory,
-                        'seasonal_averages_{0}'.format(out_file_ending))
-                    generate_seasonal_averages(lsm_rapid_output_file,
-                                               seasonal_averages_file,
-                                               num_cpus)
+                    # generate seasonal initialization file
+                    if generate_seasonal_initialization_file and \
+                            os.path.exists(lsm_rapid_output_file) and \
+                            lsm_rapid_output_file:
+                        seasonal_qinit_file = os.path.join(
+                            master_watershed_input_directory,
+                            'seasonal_qinit_{0}.csv'.format(out_file_ending[:-3]))
+                        rapid_manager.generate_seasonal_intitialization(
+                            seasonal_qinit_file)
 
-                # generate seasonal initialization file
-                if generate_seasonal_initialization_file and \
-                        os.path.exists(lsm_rapid_output_file) and \
-                        lsm_rapid_output_file:
-                    seasonal_qinit_file = os.path.join(
-                        master_watershed_input_directory,
-                        'seasonal_qinit_{0}.csv'.format(out_file_ending[:-3]))
-                    rapid_manager.generate_seasonal_intitialization(
-                        seasonal_qinit_file)
-
-                # generate initialization file
-                if generate_initialization_file and \
-                        os.path.exists(lsm_rapid_output_file) and \
-                        lsm_rapid_output_file:
-                    qinit_file = os.path.join(
-                        master_watershed_input_directory,
-                        'qinit_{0}.csv'.format(out_file_ending[:-3]))
-                    rapid_manager.generate_qinit_from_past_qout(qinit_file)
+                    # generate initialization file
+                    if generate_initialization_file and \
+                            os.path.exists(lsm_rapid_output_file) and \
+                            lsm_rapid_output_file:
+                        qinit_file = os.path.join(
+                            master_watershed_input_directory,
+                            'qinit_{0}.csv'.format(out_file_ending[:-3]))
+                        rapid_manager.generate_qinit_from_past_qout(qinit_file)
+            except Exception as ex:
+                print("Failed to process {0}".format(
+                    master_watershed_input_directory))
+                print(ex)
+                traceback.print_exc()
+                continue
 
         all_output_file_information.append(output_file_information)
 

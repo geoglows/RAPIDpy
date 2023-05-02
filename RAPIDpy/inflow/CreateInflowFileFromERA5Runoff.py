@@ -10,8 +10,7 @@
 """
 from netCDF4 import Dataset
 
-from .CreateInflowFileFromGriddedRunoff import \
-    CreateInflowFileFromGriddedRunoff
+from .CreateInflowFileFromGriddedRunoff import CreateInflowFileFromGriddedRunoff
 
 
 class CreateInflowFileFromERA5Runoff(CreateInflowFileFromGriddedRunoff):
@@ -29,7 +28,7 @@ class CreateInflowFileFromERA5Runoff(CreateInflowFileFromGriddedRunoff):
                [u"lon", u"lat", u"time", u"RO"],
                [u"time", u"lon", u"lat", u"RO"],
                [u'lat', u'lon', u'time', u'RO'],
-               ['longitude', 'latitude', 'ro', 'time'],]
+               ['longitude', 'latitude', 'ro', 'time'], ]
     length_time = {"Daily": 1, "3-Hourly": 8}
 
     def __init__(self):
