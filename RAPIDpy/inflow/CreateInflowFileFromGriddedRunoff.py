@@ -283,9 +283,9 @@ class CreateInflowFileFromGriddedRunoff(object):
         conversion_factor = 0.001
 
         # ECMWF units are in m
-        #if data_in_nc.variables[self.runoff_vars[0]] \
-        #        .getncattr("units") == "m":
-        #    conversion_factor = 1
+        if data_in_nc.variables[self.runoff_vars[0]] \
+                .getncattr("units") == "m":
+            conversion_factor = 1
 
         # ftp://hydro1.sci.gsfc.nasa.gov/data/s4pa/GLDAS_V1/README.GLDAS.pdf
         if "s" in data_in_nc.variables[self.runoff_vars[0]] \
