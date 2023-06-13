@@ -9,7 +9,7 @@
 import os
 import re
 
-from past.builtins import xrange  # pylint: disable=redefined-builtin
+#from past.builtins import xrange  # pylint: disable=redefined-builtin
 
 
 # -----------------------------------------------------------------------------
@@ -34,9 +34,9 @@ def partition(lst, n):
         Divide list into n equal parts
     """
     q, r = divmod(len(lst), n)
-    indices = [q*i + min(i, r) for i in xrange(n+1)]
-    return [lst[indices[i]:indices[i+1]] for i in xrange(n)], \
-           [list(xrange(indices[i], indices[i+1])) for i in xrange(n)]
+    indices = [q*i + min(i, r) for i in range(n+1)]
+    return [lst[indices[i]:indices[i+1]] for i in range(n)], \
+           [list(range(indices[i], indices[i+1])) for i in range(n)]
 
 
 def get_valid_directory_list(input_directory):

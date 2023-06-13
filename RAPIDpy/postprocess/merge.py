@@ -58,7 +58,7 @@ import os
 
 from netCDF4 import Dataset
 import numpy as np
-from past.builtins import xrange  # pylint: disable=redefined-builtin
+#from past.builtins import xrange  # pylint: disable=redefined-builtin
 from pytz import utc
 
 # local
@@ -451,7 +451,7 @@ class ConvertRAPIDOutputToCF(object):
                                                 float(raw_nc.size_river_id))))
             raw_nc_begin_time_step_index = 0
             for raw_nc_time_index in \
-                    xrange(0, raw_nc.size_time, max_time_step_size):
+                    range(0, raw_nc.size_time, max_time_step_size):
                 time_interval_size = \
                     max(1, min(raw_nc.size_time - raw_nc_time_index,
                                max_time_step_size))

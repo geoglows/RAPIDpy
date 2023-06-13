@@ -25,7 +25,6 @@ setup(
         'numpy',
         'netcdf4',
         'pandas',
-        'pangaea',
         'python-dateutil',
         'pytz',
         'requests',

@@ -13,7 +13,7 @@ from netCDF4 import Dataset, num2date
 import numpy as np
 from numpy.ma import is_masked
 import pandas as pd
-from past.builtins import xrange  # pylint: disable=redefined-builtin
+#from past.builtins import xrange  # pylint: disable=redefined-builtin
 from pytz import utc
 
 from .helper_functions import log, open_csv
@@ -403,7 +403,7 @@ class RAPIDDataset(object):
             time_array = num2date(time_array, time_units)
 
             if self.out_tzinfo is not None:
-                for i in xrange(len(time_array)):
+                for i in range(len(time_array)):
                     # convert time to output timezone
                     time_array[i] = utc.localize(time_array[i]) \
                                        .astimezone(self.out_tzinfo) \
@@ -942,7 +942,7 @@ class RAPIDDataset(object):
             qout_arr = self.get_qout_index(river_index)
             with open_csv(path_to_output_file, 'w') as outcsv:
                 writer = csv_writer(outcsv)
-                for index in xrange(len(qout_arr)):
+                for index in range(len(qout_arr)):
                     writer.writerow([index, "{0:.5f}".format(qout_arr[index])])
 
     def write_flows_to_gssha_time_series_xys(self,

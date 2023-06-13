@@ -11,10 +11,12 @@ import multiprocessing
 import os
 import re
 import traceback
+import glob
 
 # external packages
 import pandas as pd
-import pangaea
+import xarray as xr
+
 from netCDF4 import Dataset
 import numpy as np
 
@@ -33,10 +35,147 @@ from ..utilities import (case_insensitive_file_search,
                          get_valid_directory_list,
                          partition)
 
+# -----------------------------------------------------------------------------
+# PANGAEA OPEN MFDATASET
+# -----------------------------------------------------------------------------
+
+
+def pangaea_open_mfdataset(path_to_lsm_files,
+                           lat_var,
+                           lon_var,
+                           time_var,
+                           lat_dim,
+                           lon_dim,
+                           time_dim,
+                           lon_to_180=False,
+                           coords_projected=False,
+                           loader=None,
+                           engine=None,
+                           autoclose=True):
+    """
+    Wrapper to open land surface model netcdf files
+    using :func:`xarray.open_mfdataset`.
+
+    .. warning:: The time dimension and variable will both be
+        renamed to 'time' to enable slicing.
+
+    Parameters
+    ----------
+    path_to_lsm_files: :obj:`str`
+        Path to land surface model files with wildcard.
+        (Ex. '/path/to/files/*.nc')
+    lat_var: :obj:`str`
+        Latitude variable (Ex. lat).
+    lon_var: :obj:`str`
+        Longitude variable (Ex. lon).
+    time_var: :obj:`str`
+        Time variable (Ex. time).
+    lat_dim: :obj:`str`
+        Latitude dimension (Ex. lat).
+    lon_dim: :obj:`str`
+        Longitude dimension (Ex. lon).
+    time_dim: :obj:`str`
+        Time dimension (ex. time).
+    lon_to_180: bool, optional, default=False
+        It True, will convert longitude from [0 to 360]
+        to [-180 to 180].
+    coords_projected: bool, optional, default=False
+        It True, it will assume the coordinates are already
+        in the projected coordinate system.
+    loader: str, optional, default=None
+        If 'hrrr', it will load in the HRRR dataset.
+    engine: str, optional
+        See: :func:`xarray.open_mfdataset` documentation.
+    autoclose: :obj:`str`, optional, default=True
+        If True, will use autoclose option with
+        :func:`xarray.open_mfdataset`.
+
+    Returns
+    -------
+    :func:`xarray.Dataset`
+
+
+    Read with pangaea example::
+
+        import numpy as np
+        import pandas as pd
+        import xarray as xr
+
+        with pa.pangaea_open_mfdataset('/path/to/ncfiles/*.nc',
+                               lat_var='lat',
+                               lon_var='lon',
+                               time_var='time',
+                               lat_dim='lat',
+                               lon_dim='lon',
+                               time_dim='time') as xds:
+            print(xds.lsm.projection)
+    """
+    def define_coords(xds):
+        """xarray loader to ensure coordinates are loaded correctly"""
+        # remove time dimension from lat, lon coordinates
+        if xds[lat_var].ndim == 3:
+            xds[lat_var] = xds[lat_var].squeeze(time_dim)
+        # make sure coords are defined as coords
+        if lat_var not in xds.coords \
+                or lon_var not in xds.coords \
+                or time_var not in xds.coords:
+            xds.set_coords([lat_var, lon_var, time_var],
+                           inplace=True)
+        return xds
+
+    def extract_hrrr_date(xds):
+        """xarray loader for HRRR"""
+        for var in xds.variables:
+            if 'initial_time' in xds[var].attrs.keys():
+                grid_time = pd.to_datetime(xds[var].attrs['initial_time'],
+                                           format="%m/%d/%Y (%H:%M)")
+                if 'forecast_time' in xds[var].attrs.keys():
+                    time_units = 'h'
+                    if 'forecast_time_units' in xds[var].attrs.keys():
+                        time_units = \
+                            str(xds[var].attrs['forecast_time_units'][0])
+                    time_dt = int(xds[var].attrs['forecast_time'][0])
+                    grid_time += np.timedelta64(time_dt, time_units)
+
+                return xds.assign(time=grid_time)
+        return xds
+
+    if loader == 'hrrr':
+        preprocess = extract_hrrr_date
+        engine = 'pynio' if engine is None else engine
+    else:
+        preprocess = define_coords
+
+    xds = xr.open_mfdataset(path_to_lsm_files,
+                            autoclose=autoclose,
+                            preprocess=preprocess,
+                            concat_dim=time_dim,
+                            engine=engine,
+                            )
+    xds.lsm.y_var = lat_var
+    xds.lsm.x_var = lon_var
+    xds.lsm.y_dim = lat_dim
+    xds.lsm.x_dim = lon_dim
+    xds.lsm.lon_to_180 = lon_to_180
+    xds.lsm.coords_projected = coords_projected
+
+    # make sure time dimensions are same for slicing
+    xds.rename(
+        {
+            time_dim: 'time',
+            time_var: 'time',
+        },
+        inplace=True
+    )
+
+    xds.lsm.to_datetime()
+    return xds
 
 # -----------------------------------------------------------------------------
 # MULTIPROCESSING FUNCTION
 # -----------------------------------------------------------------------------
+
+
 def generate_inflows_from_runoff(args):
     """
     prepare runoff inflow file for rapid
@@ -48,6 +187,20 @@ def generate_inflows_from_runoff(args):
     rapid_inflow_file = args[4]
     rapid_inflow_tool = args[5]
     mp_lock = args[6]
+    loop_index = args[7]
+    multiple_write = args[8]
+    og_inflow_file = args[9]
+
+    if multiple_write:
+        # Split the file path into directory, base name, and extension
+        directory, file_name = os.path.split(rapid_inflow_file)
+        base_name, extension = os.path.splitext(file_name)
+
+        # Insert the character before the extension
+        new_file_name = base_name + f"_{loop_index}" + extension
+
+        # Join the directory and the new file name to get the updated file path
+        rapid_inflow_file = os.path.join(directory, new_file_name)
 
     time_start_all = datetime.utcnow()
 
@@ -77,7 +230,9 @@ def generate_inflows_from_runoff(args):
                                       in_weight_table=weight_table_file,
                                       out_nc=rapid_inflow_file,
                                       grid_type=grid_type,
-                                      mp_lock=mp_lock)
+                                      mp_lock=mp_lock,
+                                      multiple_write=multiple_write,
+                                      og_nc=og_inflow_file)
         except Exception:
             # This prints the type, value, and stack trace of the
             # current exception being handled.
@@ -497,7 +652,7 @@ def identify_lsm_grid(lsm_grid_path):
                     longitude_var,
                     surface_runoff_var,
                     subsurface_runoff_var,
-                )
+            )
         else:
             lsm_example_file.close()
             raise Exception("Unsupported LSM grid.")
@@ -513,7 +668,7 @@ def identify_lsm_grid(lsm_grid_path):
                 latitude_var,
                 longitude_var,
                 runoff_vars,
-            )
+        )
 
     return lsm_file_data
 
@@ -561,7 +716,7 @@ def determine_start_end_timestep(lsm_file_list,
                 int((datetime.strptime(
                     file_re_match.search(lsm_file_list[1]).group(0),
                     file_datetime_pattern) -
-                     actual_simulation_start_datetime).total_seconds()
+                    actual_simulation_start_datetime).total_seconds()
                     / float(file_size_time))
 
         elif expected_time_step is not None:
@@ -577,7 +732,7 @@ def determine_start_end_timestep(lsm_file_list,
                               file_datetime_pattern) \
             + timedelta(seconds=(file_size_time - 1) * time_step)
     else:
-        with pangaea.open_mfdataset(lsm_file_list,
+        with pangaea_open_mfdataset(lsm_file_list,
                                     lat_var=lsm_grid_info['latitude_var'],
                                     lon_var=lsm_grid_info['longitude_var'],
                                     time_var=lsm_grid_info['time_var'],
@@ -617,6 +772,7 @@ def determine_start_end_timestep(lsm_file_list,
 def run_lsm_rapid_process(rapid_executable_location,
                           lsm_data_location,
                           rapid_io_files_location=None,
+                          rapid_file_location=None,
                           rapid_input_location=None,
                           rapid_output_location=None,
                           simulation_start_datetime=None,
@@ -633,6 +789,7 @@ def run_lsm_rapid_process(rapid_executable_location,
                           generate_seasonal_initialization_file=False,
                           generate_initialization_file=False,
                           use_all_processors=True,
+                          multiple_write=False,
                           num_processors=1,
                           mpiexec_command="mpiexec",
                           cygwin_bin_location="",
@@ -653,6 +810,8 @@ def run_lsm_rapid_process(rapid_executable_location,
     rapid_io_files_location: str, optional
         Path to the directory containing the input and output folders for
         RAPID. This is for running multiple watersheds.
+    rapid_file_location :str, optional
+        Path to directory with RAPID input data (does not contain subdirectories; only data)
     rapid_input_location: str, optional
         Path to directory with RAPID simulation input data.
         Required if `rapid_io_files_location` is not set.
@@ -704,6 +863,9 @@ def run_lsm_rapid_process(rapid_executable_location,
     num_processors: int, optional
         If use_all_processors is False, this argument will determine the
         number of processors to use. Default is 1.
+    multiple_write: bool, optional
+        If true, multiple flow files will be written for each process and then 
+        combined at the end. Default is for all processes to write to one file.
     mpiexec_command: str, optional
         This is the command to execute RAPID. Default is "mpiexec".
     cygwin_bin_location: str, optional
@@ -821,11 +983,19 @@ def run_lsm_rapid_process(rapid_executable_location,
                                                  watershed_directory)
             rapid_directories.append(
                 (watershed_input_path, watershed_output_path))
+        # Ricky
+        if not rapid_directories:
+            rapid_directories = [(os.path.join(rapid_io_files_location,
+                                               'input'), os.path.join(rapid_io_files_location,
+                                                                      'output'))]
     elif None not in (rapid_input_location, rapid_output_location):
         rapid_directories = [(rapid_input_location, rapid_output_location)]
+    elif rapid_file_location is not None:
+        rapid_directories = [(rapid_file_location, rapid_output_location)]
     else:
         raise ValueError("Need 'rapid_io_files_location' or "
-                         "'rapid_input_location' and 'rapid_output_location'"
+                         "'rapid_input_location' and 'rapid_output_location' or "
+                         "'rapid_file_location' and 'rapid_output_location'"
                          " set to continue.")
 
     all_output_file_information = []
@@ -903,7 +1073,7 @@ def run_lsm_rapid_process(rapid_executable_location,
             time_step *= 3
 
         # compile the file ending
-        out_file_ending = "{0}_{1}_{2}hr_{3:%Y%m%d}to{4:%Y%m%d}{5}" \
+        out_file_ending = "{0}_{1}_{2}hr_{3:%Y%m%d}_{4:%Y%m%d}{5}" \
             .format(lsm_file_data['model_name'],
                     lsm_file_data['grid_type'],
                     int(time_step / 3600),
@@ -954,7 +1124,6 @@ def run_lsm_rapid_process(rapid_executable_location,
                 modeling_institution=modeling_institution
             )
 
-            job_combinations = []
             if (lsm_file_data['grid_type'] in ('nldas', 'lis', 'joules')) \
                     and convert_one_hour_to_three:
                 print("Grouping {0} in threes"
@@ -972,6 +1141,7 @@ def run_lsm_rapid_process(rapid_executable_location,
             partition_list, partition_index_list = \
                 partition(lsm_file_list, num_cpus)
 
+            job_combinations = []
             for loop_index, cpu_grouped_file_list in enumerate(partition_list):
                 if cpu_grouped_file_list and partition_index_list[loop_index]:
                     job_combinations.append((
@@ -981,7 +1151,10 @@ def run_lsm_rapid_process(rapid_executable_location,
                         lsm_file_data['grid_type'],
                         master_rapid_runoff_file,
                         lsm_file_data['rapid_inflow_tool'],
-                        mp_lock))
+                        mp_lock,
+                        loop_index,
+                        multiple_write,
+                        master_rapid_runoff_file))
             #                   # COMMENTED CODE IS FOR DEBUGGING
             #                   generate_inflows_from_runoff((
             #                       cpu_grouped_file_list,
@@ -991,12 +1164,22 @@ def run_lsm_rapid_process(rapid_executable_location,
             #                       master_rapid_runoff_file,
             #                       lsm_file_data['rapid_inflow_tool'],
             #                       mp_lock))
-            pool = multiprocessing.Pool(num_cpus)
-            pool.map(generate_inflows_from_runoff,
-                     job_combinations)
-            pool.close()
-            pool.join()
 
+            with multiprocessing.Pool(num_cpus) as pool:
+                pool.map(generate_inflows_from_runoff, job_combinations)
+
+            if multiple_write:
+                datasets = glob.glob(
+                    f'{os.path.split(master_rapid_runoff_file)[0]}/*.nc')
+                datasets = [
+                    ds_file for ds_file in datasets if master_rapid_runoff_file not in ds_file]
+                ds = xr.open_mfdataset(datasets)
+                ds.to_netcdf(master_rapid_runoff_file)
+            # dataset = Dataset(master_rapid_runoff_file, 'a')
+            # result = pd.concat(result)
+            # for index, value in result['m3_riv'].items():
+            #     dataset['m3_riv'][index] = value
+            # dataset.close()
             # set up RAPID manager
             rapid_manager = RAPID(
                 rapid_executable_location=rapid_executable_location,

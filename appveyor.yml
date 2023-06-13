@@ -23,7 +23,7 @@ install:
   - activate rapid
   # Install required python packages
   - conda config --add channels conda-forge
-  - conda install --yes cmake gdal future netcdf4 numpy pandas pangaea pyproj pytz requests rtree scipy shapely
+  - conda install --yes cmake gdal future netcdf4 numpy pandas pyproj pytz requests rtree scipy shapely
   - deactivate rapid
   #install cygwin
   - '%CYG_ROOT%\setup-x86_64.exe -qnNdO -R "%CYG_ROOT%" -s "%CYG_MIRROR%" -l "%CYG_CACHE%" -P dos2unix,gcc-core,gcc-g++,gcc-fortran,gdb,git,make,time,wget,gdal,libgdal-devel > NULL'
