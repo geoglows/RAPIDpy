@@ -774,18 +774,16 @@ class RAPID(object):
         log("Running RAPID ...",
             "INFO")
         if os.name == "nt":
-            local_rapid_executable_location = \
-                self._get_cygwin_path(local_rapid_executable_location)
+            local_rapid_executable_location = self._get_cygwin_path(local_rapid_executable_location)
 
         # htcondor will not allow mpiexec for single processor jobs
         # this was added for that purpose
-        run_rapid_command = [local_rapid_executable_location,
-                             "-ksp_type", self._ksp_type]
+        run_rapid_command = [local_rapid_executable_location, "-ksp_type", 'preonly']
 
-        if self._num_processors > 1:
-            run_rapid_command = [self._mpiexec_command,
-                                 "-n", str(self._num_processors)] \
-                                + run_rapid_command
+        # if self._num_processors > 1:
+        #     run_rapid_command = [self._mpiexec_command,
+        #                          "-n", str(self._num_processors)] \
+        #                         + run_rapid_command
 
         process = Popen(run_rapid_command,
                         stdout=PIPE, stderr=PIPE, shell=False)
