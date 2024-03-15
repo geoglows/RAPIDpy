@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='RAPIDpy',
-    version='2.7.0',
+    version='2.8.0',
     description='Python interface for RAPID (rapid-hub.org)',
     long_description='RAPIDpy is a python interface for RAPID that assists '
          'to prepare inputs, runs the RAPID program, and provides '
@@ -25,8 +25,6 @@ setup(
         'Intended Audience :: Science/Research',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
